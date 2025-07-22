@@ -68,12 +68,57 @@ class PasswordManagerCard extends HTMLElement {
     if (!this._hass || !this._config) return;
 
     const apps = this._config.apps || [];
-    let html = `
+    const modalApp = this._modalApp;
+    const modalPassword = this._modalPassword ?? '';
+
+    const html = `
       <style>
-        .card { padding: 16px; }
-        .app-tile { margin-bottom: 1em; border: 1px solid #ccc; border-radius: 10px; padding: 12px; }
-        .app-title { font-weight: bold; }
-        button { margin: 4px 4px 4px 0; }
+        :host {
+          display: block;
+        }
+        ha-card {
+          font-family: var(--primary-font-family);
+        }
+        .card {
+          padding: 16px;
+        }
+        .app-tile {
+          background-color: var(--card-background-color);
+          border: 1px solid var(--divider-color, #e0e0e0);
+          border-radius: var(--ha-card-border-radius, 12px);
+          padding: 16px;
+          margin-bottom: 1em;
+          box-shadow: var(--ha-card-box-shadow);
+        }
+        .app-title {
+          font-size: 1.2em;
+          font-weight: bold;
+          color: var(--primary-text-color);
+          margin-bottom: 8px;
+        }
+        button {
+          margin: 8px 8px 8px 0;
+          padding: 6px 12px;
+          background-color: var(--primary-color);
+          color: var(--text-primary-color, #fff);
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 1em;
+        }
+        button:hover {
+          filter: brightness(1.1);
+        }
+        input {
+          width: 100%;
+          padding: 8px;
+          font-size: 1em;
+          background: var(--input-background-color, #f7f7f7);
+          color: var(--primary-text-color);
+          border: 1px solid var(--divider-color, #ccc);
+          border-radius: 4px;
+          margin-bottom: 10px;
+        }
         .modal {
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(0,0,0,0.5);
@@ -81,41 +126,44 @@ class PasswordManagerCard extends HTMLElement {
           z-index: 1000;
         }
         .modal-content {
-          background: white; padding: 20px; border-radius: 12px; width: 300px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          padding: 20px;
+          border-radius: var(--ha-card-border-radius, 12px);
+          width: 300px;
+          box-shadow: var(--ha-card-box-shadow);
         }
-        input { width: 100%; margin: 0.5em 0; }
       </style>
       <ha-card header="Password Manager">
         <div class="card">
-    `;
+          ${apps.map(app => {
+            const pwd = this._getPassword(app.entity);
+            const copyButton = `<button onclick="navigator.clipboard.writeText('${pwd.replace(/'/g, "\\'")}')">📋 Copy</button>`;
+            const editButton = `<button onclick="this.parentElement.parentElement.parentElement.parentElement.openModal(${JSON.stringify(app).replace(/"/g, '&quot;')})">✏️ Edit</button>`;
 
-    apps.forEach(app => {
-      const pwd = this._getPassword(app.entity);
-      html += `
-        <div class="app-tile">
-          <div class="app-title">${app.name}</div>
-          <button onclick="navigator.clipboard.writeText('${pwd}')">📋 Copy</button>
-          <button onclick="this.parentElement.parentElement.parentElement.parentElement.openModal(${JSON.stringify(app).replace(/"/g, '&quot;')})">✏️ Edit</button>
+            return `
+              <div class="app-tile">
+                <div class="app-title">${app.name}</div>
+                ${copyButton} ${editButton}
+              </div>
+            `;
+          }).join('')}
         </div>
-      `;
-    });
+      </ha-card>
 
-    html += '</div></ha-card>';
-
-    if (this._modalApp) {
-      const app = this._modalApp;
-      html += `
+      ${modalApp ? `
         <div class="modal" onclick="this.querySelector('.modal-content').parentElement.parentElement.closeModal()">
           <div class="modal-content" onclick="event.stopPropagation()">
-            <div><b>${app.name}</b></div>
-            <input type="text" value="${this._modalPassword}" oninput="this.parentElement.parentElement.parentElement.parentElement._modalPassword = this.value">
+            <div><b>${modalApp.name}</b></div>
+            <input type="text" value="${modalPassword.replace(/"/g, '&quot;')}" 
+                   oninput="this.parentElement.parentElement.parentElement.parentElement._modalPassword = this.value">
             <button onclick="this.parentElement.parentElement.parentElement.parentElement.generateInModal()">🔄 Generate & Copy</button>
             <button onclick="this.parentElement.parentElement.parentElement.parentElement.saveModalPassword()">💾 Save</button>
             <button onclick="this.parentElement.parentElement.parentElement.parentElement.closeModal()">❌ Cancel</button>
           </div>
         </div>
-      `;
-    }
+      ` : ''}
+    `;
 
     this.innerHTML = html;
   }
