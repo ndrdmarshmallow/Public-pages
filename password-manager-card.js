@@ -32,6 +32,9 @@ class PasswordManagerCard extends HTMLElement {
 
   _copy(text) {
     navigator.clipboard.writeText(text);
+    window.dispatchEvent(new CustomEvent('hass-show-toast', {
+      detail: { message: 'Copied to clipboard!' }
+    }));
   }
 
   openModal(app) {
