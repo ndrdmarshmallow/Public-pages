@@ -74,17 +74,12 @@ class PasswordManagerCard extends HTMLElement {
     const modalApp = this._modalApp;
     const modalPassword = this._modalPassword ?? '';
 
-    const html = `
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
       <style>
-        :host {
-          display: block;
-        }
-        ha-card {
-          font-family: var(--primary-font-family);
-        }
-        .card {
-          padding: 16px;
-        }
+        :host { display: block; }
+        ha-card { font-family: var(--primary-font-family); }
+        .card { padding: 16px; }
         .app-tile {
           background-color: var(--card-background-color);
           border: 1px solid var(--divider-color, #e0e0e0);
@@ -137,38 +132,69 @@ class PasswordManagerCard extends HTMLElement {
           box-shadow: var(--ha-card-box-shadow);
         }
       </style>
+
       <ha-card header="Password Manager">
         <div class="card">
-          ${apps.map(app => {
-            const pwd = this._getPassword(app.entity);
-            const copyButton = `<button onclick="navigator.clipboard.writeText('${pwd.replace(/'/g, "\\'")}')">📋 Copy</button>`;
-            const editButton = `<button onclick="this.parentElement.parentElement.parentElement.parentElement.openModal(${JSON.stringify(app).replace(/"/g, '&quot;')})">✏️ Edit</button>`;
-
-            return `
-              <div class="app-tile">
-                <div class="app-title">${app.name}</div>
-                ${copyButton} ${editButton}
-              </div>
-            `;
-          }).join('')}
+          ${apps.map((app, index) => `
+            <div class="app-tile" data-idx="${index}">
+              <div class="app-title">${app.name}</div>
+              <button class="copy-btn">Copy Password</button>
+              <button class="edit-btn">Edit Password</button>
+            </div>
+          `).join('')}
         </div>
       </ha-card>
 
       ${modalApp ? `
-        <div class="modal" onclick="this.querySelector('.modal-content').parentElement.parentElement.closeModal()">
-          <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal">
+          <div class="modal-content">
             <div><b>${modalApp.name}</b></div>
-            <input type="text" value="${modalPassword.replace(/"/g, '&quot;')}" 
-                   oninput="this.parentElement.parentElement.parentElement.parentElement._modalPassword = this.value">
-            <button onclick="this.parentElement.parentElement.parentElement.parentElement.generateInModal()">🔄 Generate & Copy</button>
-            <button onclick="this.parentElement.parentElement.parentElement.parentElement.saveModalPassword()">💾 Save</button>
-            <button onclick="this.parentElement.parentElement.parentElement.parentElement.closeModal()">❌ Cancel</button>
+            <input type="text" value="${modalPassword.replace(/"/g, '&quot;')}" id="modal-password">
+            <button class="generate-btn">Generate Password</button>
+            <button class="save-btn">Save</button>
+            <button class="cancel-btn">Cancel</button>
           </div>
         </div>
       ` : ''}
     `;
 
-    this.innerHTML = html;
+    this.innerHTML = '';
+    this.appendChild(wrapper);
+
+    // Attach tile button listeners
+    wrapper.querySelectorAll('.app-tile').forEach(tile => {
+      const idx = parseInt(tile.getAttribute('data-idx'));
+      const app = apps[idx];
+
+      tile.querySelector('.copy-btn').addEventListener('click', () => {
+        const pwd = this._getPassword(app.entity);
+        this._copy(pwd);
+      });
+
+      tile.querySelector('.edit-btn').addEventListener('click', () => {
+        this.openModal(app);
+      });
+    });
+
+    // Modal listeners
+    if (modalApp) {
+      wrapper.querySelector('.modal').addEventListener('click', () => this.closeModal());
+      wrapper.querySelector('.modal-content').addEventListener('click', e => e.stopPropagation());
+
+      wrapper.querySelector('.generate-btn').addEventListener('click', () => {
+        this.generateInModal();
+      });
+
+      wrapper.querySelector('.save-btn').addEventListener('click', () => {
+        const val = wrapper.querySelector('#modal-password').value;
+        this._modalPassword = val;
+        this.saveModalPassword();
+      });
+
+      wrapper.querySelector('.cancel-btn').addEventListener('click', () => {
+        this.closeModal();
+      });
+    }
   }
 }
 
